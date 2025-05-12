@@ -23,15 +23,16 @@ This approach avoids Service Bus message size limits by storing the actual conte
 
 ```mermaid
 flowchart TD
-    A[HTTP Trigger] --> B[Initialize Claim ID]
-    B --> C[Upload message content to Blob Storage]
+    A[HTTP Trigger] --> Scope
+    
+    subgraph Scope[Scope]
+    B[Initialize Claim ID] --> C[Upload message content to Blob Storage]
     C --> D[Create claim check message]
     D --> E[Send claim check to Service Bus Queue]
     E --> F[Return success response]
+    end
     
-    C -- Error --> G[Return error response]
-    D -- Error --> G
-    E -- Error --> G
+    Scope -- Error --> G[Return error response]
 ```
 
 #### Connectors Required
@@ -63,23 +64,17 @@ If any step fails, the Service Bus message is abandoned, allowing it to be retri
 
 ```mermaid
 flowchart TD
-    A[Service Bus Queue Trigger] --> B[Validate Message Format]
-    B --> C[Read Blob Content from Storage]
+    A[Service Bus Queue Trigger] --> Scope
+    
+    subgraph Scope[Scope]
+    B[Validate Message Format] --> C[Read Blob Content from Storage]
     C --> D[Send Email with Content as Attachment]
     D --> E[Delete Blob from Storage]
     E --> F[Complete Service Bus Message]
+    end
     
-    B -- Error --> G[Abandon Service Bus Message]
-    C -- Error --> G
-    D -- Error --> G
-    E -- Error --> G
+    Scope -- Error --> G[Abandon Service Bus Message]
 ```
-
-#### Connectors Required
-- Azure Service Bus
-- Azure Blob Storage
-- Outlook/Office 365 Email
-
 #### Parameters Used
 - `claimRepository` - The name of the blob container where the message content is stored
 - `claimcheckqueue` - The name of the Service Bus queue where claim check messages are received from
