@@ -9,7 +9,7 @@
   },
   "destinationEmail": {
     "type": "String",
-    "value": "wsilveira@microsoft.com"
+    "value": "me@company.com"
   },
   "outlook-ConnectionRuntimeUrl": {
     "type": "String",
