@@ -1,0 +1,18 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "APP_KIND": "workflowapp",
+    "ProjectDirectoryPath": "Enter your project directory path here",
+    "WORKFLOWS_TENANT_ID": "Enter your tenant ID here",
+    "WORKFLOWS_SUBSCRIPTION_ID": "Enter your subscription ID here",
+    "WORKFLOWS_RESOURCE_GROUP_NAME": "Enter your resource group name here",
+    "WORKFLOWS_LOCATION_NAME": "Enter your Azure region name here",
+    "WORKFLOWS_MANAGEMENT_BASE_URI": "Enter the management base URI here",
+    "AzureBlob_connectionString": "Enter your Azure Blob connection string here",
+    "serviceBus_connectionString": "Enter your Service Bus connection string here",
+    "outlook-connectionKey": "Enter your Outlook connection key here",
+    "outlook-ConnectionRuntimeUrl": "Enter your Outlook connection runtime URL here"
+  }
+}

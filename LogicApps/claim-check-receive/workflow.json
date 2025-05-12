@@ -1,0 +1,157 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "Scope": {
+                "type": "Scope",
+                "actions": {
+                    "Read_blob_content": {
+                        "type": "ServiceProvider",
+                        "inputs": {
+                            "parameters": {
+                                "containerName": "@parameters('claimRepository')",
+                                "blobName": "@body('Validate_Message')?['claimId']"
+                            },
+                            "serviceProviderConfiguration": {
+                                "connectionName": "AzureBlob",
+                                "operationId": "readBlob",
+                                "serviceProviderId": "/serviceProviders/AzureBlob"
+                            }
+                        },
+                        "runAfter": {
+                            "Validate_Message": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    },
+                    "Validate_Message": {
+                        "type": "ParseJson",
+                        "inputs": {
+                            "content": "@triggerBody()?['contentData']",
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "messageId": {
+                                        "type": "string"
+                                    },
+                                    "claimId": {
+                                        "type": "string"
+                                    },
+                                    "fileName": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "Send_an_email_(V2)": {
+                        "type": "ApiConnection",
+                        "inputs": {
+                            "host": {
+                                "connection": {
+                                    "referenceName": "outlook"
+                                }
+                            },
+                            "method": "post",
+                            "body": {
+                                "To": "@parameters('destinationEmail')",
+                                "Subject": "Message received (ID @{triggerBody()?['messageId']})",
+                                "Body": "<p class=\"editor-paragraph\">This message was received by Logic Apps claim-check pattern. Check attachment.</p>",
+                                "Attachments": [
+                                    {
+                                        "Name": "@body('Validate_Message')?['fileName']",
+                                        "ContentBytes": "@base64(body('Read_blob_content')?['content'])"
+                                    }
+                                ],
+                                "Importance": "Normal"
+                            },
+                            "path": "/v2/Mail"
+                        },
+                        "runAfter": {
+                            "Read_blob_content": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    },
+                    "Delete_a_blob": {
+                        "type": "ServiceProvider",
+                        "inputs": {
+                            "parameters": {
+                                "containerName": "@parameters('claimRepository')",
+                                "blobName": "@body('Validate_Message')?['claimId']"
+                            },
+                            "serviceProviderConfiguration": {
+                                "connectionName": "AzureBlob",
+                                "operationId": "deleteBlob",
+                                "serviceProviderId": "/serviceProviders/AzureBlob"
+                            }
+                        },
+                        "runAfter": {
+                            "Send_an_email_(V2)": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    }
+                },
+                "runAfter": {}
+            },
+            "Complete_the_message_in_a_queue": {
+                "type": "ServiceProvider",
+                "inputs": {
+                    "parameters": {
+                        "queueName": "@parameters('claimcheckqueue')",
+                        "lockToken": "@triggerBody()?['lockToken']"
+                    },
+                    "serviceProviderConfiguration": {
+                        "connectionName": "serviceBus",
+                        "operationId": "completeQueueMessageV2",
+                        "serviceProviderId": "/serviceProviders/serviceBus"
+                    }
+                },
+                "runAfter": {
+                    "Scope": [
+                        "SUCCEEDED"
+                    ]
+                }
+            },
+            "Abandon_the_message_in_a_queue": {
+                "type": "ServiceProvider",
+                "inputs": {
+                    "parameters": {
+                        "queueName": "@parameters('claimcheckqueue')",
+                        "lockToken": "@triggerBody()?['lockToken']"
+                    },
+                    "serviceProviderConfiguration": {
+                        "connectionName": "serviceBus",
+                        "operationId": "abandonQueueMessageV2",
+                        "serviceProviderId": "/serviceProviders/serviceBus"
+                    }
+                },
+                "runAfter": {
+                    "Scope": [
+                        "FAILED"
+                    ]
+                }
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "triggers": {
+            "When_messages_are_available_in_a_queue_(peek-lock)": {
+                "type": "ServiceProvider",
+                "inputs": {
+                    "parameters": {
+                        "queueName": "@parameters('claimcheckqueue')"
+                    },
+                    "serviceProviderConfiguration": {
+                        "connectionName": "serviceBus",
+                        "operationId": "peekLockQueueMessagesV2",
+                        "serviceProviderId": "/serviceProviders/serviceBus"
+                    }
+                },
+                "splitOn": "@triggerOutputs()?['body']"
+            }
+        }
+    },
+    "kind": "Stateful"
+}

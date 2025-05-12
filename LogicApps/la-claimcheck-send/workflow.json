@@ -1,0 +1,129 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "Scope": {
+                "type": "Scope",
+                "actions": {
+                    "Upload_blob_to_storage_container": {
+                        "type": "ServiceProvider",
+                        "inputs": {
+                            "parameters": {
+                                "containerName": "@parameters('claimRepository')",
+                                "blobName": "@variables('claimId')",
+                                "content": "@triggerBody()?['content']"
+                            },
+                            "serviceProviderConfiguration": {
+                                "connectionName": "AzureBlob",
+                                "operationId": "uploadBlob",
+                                "serviceProviderId": "/serviceProviders/AzureBlob"
+                            }
+                        }
+                    },
+                    "Set_Claim-Check_message": {
+                        "type": "Compose",
+                        "inputs": {
+                            "messageId": "@{triggerBody()?['messageId']}",
+                            "claimId": "@{variables('claimId')}",
+                            "fileName": "@{triggerBody()?['fileName']}"
+                        },
+                        "runAfter": {
+                            "Upload_blob_to_storage_container": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    },
+                    "Send_message": {
+                        "type": "ServiceProvider",
+                        "inputs": {
+                            "parameters": {
+                                "entityName": "@parameters('claimcheckqueue')",
+                                "message": {
+                                    "contentData": "@outputs('Set_Claim-Check_message')",
+                                    "contentType": "application/json"
+                                }
+                            },
+                            "serviceProviderConfiguration": {
+                                "connectionName": "serviceBus",
+                                "operationId": "sendMessage",
+                                "serviceProviderId": "/serviceProviders/serviceBus"
+                            }
+                        },
+                        "runAfter": {
+                            "Set_Claim-Check_message": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    },
+                    "Success_Response": {
+                        "type": "Response",
+                        "kind": "Http",
+                        "inputs": {
+                            "statusCode": 200
+                        },
+                        "runAfter": {
+                            "Send_message": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    }
+                },
+                "runAfter": {
+                    "Initialize_claimID": [
+                        "SUCCEEDED"
+                    ]
+                }
+            },
+            "Initialize_claimID": {
+                "type": "InitializeVariable",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "claimId",
+                            "type": "string",
+                            "value": "@{guid()}"
+                        }
+                    ]
+                },
+                "runAfter": {}
+            },
+            "Failed_Response": {
+                "type": "Response",
+                "kind": "Http",
+                "inputs": {
+                    "statusCode": 500
+                },
+                "runAfter": {
+                    "Scope": [
+                        "FAILED"
+                    ]
+                }
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "triggers": {
+            "When_a_HTTP_request_is_received": {
+                "type": "Request",
+                "kind": "Http",
+                "inputs": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "messageId": {
+                                "type": "string"
+                            },
+                            "fileName": {
+                                "type": "string"
+                            },
+                            "content": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "kind": "Stateful"
+}
