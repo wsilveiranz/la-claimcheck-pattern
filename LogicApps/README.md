@@ -1,90 +1,34 @@
-# Logic App Claim Check Pattern Implementation
+# Instructions
 
-This project implements the Claim Check Enterprise Integration Pattern using Azure Logic Apps Standard. The pattern helps manage large messages by storing the message content in a repository (Azure Blob Storage) and passing only a reference (claim check) between services via a message queue (Service Bus).
+After cloning this repository, please rename the file LogicApps/dev.settings.json to LogicApps/local.settings.json and update the values in the file with your own settings. The file is ignored by git, so it won't be pushed to the repository.
+ 
+The file should look like this:
 
-## Workflows
-
-### 1. Claim Check Send
-
-#### Title
-Claim Check Pattern - Message Sender
-
-#### Overview
-This workflow implements the sender part of the Claim Check pattern. When a large message is received via HTTP request, it:
-1. Generates a unique claim ID (a GUID)
-2. Stores the message content in Azure Blob Storage using the claim ID as the blob name
-3. Creates a small claim check message containing only metadata and the claim ID reference
-4. Sends this small claim check message to a Service Bus queue
-5. Returns an HTTP response indicating success or failure
-
-This approach avoids Service Bus message size limits by storing the actual content in blob storage and passing only a reference.
-
-#### Workflow Diagram
-
-```mermaid
-flowchart TD
-    A[HTTP Trigger] --> Scope
-    
-    subgraph Scope[Scope]
-    B[Initialize Claim ID] --> C[Upload message content to Blob Storage]
-    C --> D[Create claim check message]
-    D --> E[Send claim check to Service Bus Queue]
-    E --> F[Return success response]
-    end
-    
-    Scope -- Error --> G[Return error response]
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "APP_KIND": "workflowapp",
+    "ProjectDirectoryPath": "c:\\<repo local folder>\\LogicApps",
+    "WORKFLOWS_TENANT_ID": "<your-tenant-id>",
+    "WORKFLOWS_SUBSCRIPTION_ID": "<your-subscription-id>",
+    "WORKFLOWS_RESOURCE_GROUP_NAME": "<your-resource-group-name>",
+    "WORKFLOWS_LOCATION_NAME": "<your-location-name>",
+    "WORKFLOWS_MANAGEMENT_BASE_URI": "https://management.azure.com/",
+    "AzureBlob_connectionString": "DefaultEndpointsProtocol=https;AccountName=<yourblobstorage>;AccountKey=<yourblobstoragekey>;EndpointSuffix=core.windows.net",
+    "serviceBus_connectionString": "Endpoint=sb://<your-sb-namespace>.servicebus.windows.net/;SharedAccessKeyName=claim-check-pattern;SharedAccessKey=<your-sb-key>",
+    "outlook-connectionKey": "<your-outlook-connectionKey>",
+    "outlook-ConnectionRuntimeUrl": "<your-outlook-ConnectionRuntimeUrl>"
+  }
+}
 ```
+## Notes
 
-#### Connectors Required
-- HTTP Trigger
-- Azure Blob Storage
-- Azure Service Bus
-
-#### Parameters Used
-- `claimRepository` - The name of the blob container where the message content is stored
-- `claimcheckqueue` - The name of the Service Bus queue where claim check messages are sent
-
-### 2. Claim Check Receive
-
-#### Title
-Claim Check Pattern - Message Receiver
-
-#### Overview
-This workflow implements the receiver part of the Claim Check pattern. It:
-1. Listens for messages in a Service Bus queue using peek-lock mode
-2. When a claim check message arrives, it validates the message format
-3. Retrieves the original message content from Azure Blob Storage using the claim ID
-4. Processes the retrieved content (in this case, by sending an email with the content as an attachment)
-5. Deletes the blob from storage once processing is complete
-6. Completes the Service Bus message to remove it from the queue
-
-If any step fails, the Service Bus message is abandoned, allowing it to be retried later.
-
-#### Workflow Diagram
-
-```mermaid
-flowchart TD
-    A[Service Bus Queue Trigger] --> Scope
-    
-    subgraph Scope[Scope]
-    B[Validate Message Format] --> C[Read Blob Content from Storage]
-    C --> D[Send Email with Content as Attachment]
-    D --> E[Delete Blob from Storage]
-    E --> F[Complete Service Bus Message]
-    end
-    
-    Scope -- Error --> G[Abandon Service Bus Message]
-```
-#### Parameters Used
-- `claimRepository` - The name of the blob container where the message content is stored
-- `claimcheckqueue` - The name of the Service Bus queue where claim check messages are received from
-- `destinationEmail` - The email address where processed messages are sent to
-
-## Architecture Benefits
-
-The Claim Check pattern provides several advantages:
-- Avoids message size limitations in messaging systems
-- Reduces the load on the messaging infrastructure
-- Improves scalability and performance
-- Decouples storage concerns from messaging concerns
-- Enables secure handling of sensitive data
+- The `ProjectDirectoryPath` is the path to the Logic Apps project folder. This is used by the Azure Functions runtime to locate the Logic Apps project.
+- The `WORKFLOWS_TENANT_ID`, `WORKFLOWS_SUBSCRIPTION_ID`, `WORKFLOWS_RESOURCE_GROUP_NAME`, and `WORKFLOWS_LOCATION_NAME` are used to authenticate with Azure Logic Apps.
+- The `AzureBlob_connectionString` is the connection string for the Azure Blob Storage account used by the Logic Apps.
+- The `serviceBus_connectionString` is the connection string for the Azure Service Bus used by the Logic Apps.
+- The `outlook-connectionKey` is the connection key for the Outlook connector used by the Logic Apps. This should be generated by the system if it recognizes an invalid key but only if you have a valid connection created.
+- The `outlook-ConnectionRuntimeUrl` is the runtime URL for the Outlook connector used by the Logic Apps. You can find how to retrieve this URL in this [Tech Community blog post](https://techcommunity.microsoft.com/blog/integrationsonazureblog/parameterizing-managed-connections-with-logic-apps-standard/3660679).
